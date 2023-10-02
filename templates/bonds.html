@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Molecule-like Structure</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: scroll; /* Hide scrollbars to prevent double-scrolling */
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: 150%;
+            padding: 10%;
+        }
+    </style>
+</head>
+<body>
+    <svg></svg>
+
+    <script>
+        // Sample data representing atoms and bonds
+        const atoms = {{ inter_data.nodes|safe }};
+        const bonds = {{ inter_data.links|safe }};
+
+        const svg = d3.select("svg");
+
+        // Create edges (lines) to represent bonds
+        const bond = svg.selectAll(".bond")
+            .data(bonds)
+            .enter().append("line")
+            .attr("class", "bond")
+            .style("stroke", "black") // Change the bond color to black
+            .style("stroke-width", 2); // Adjust the bond width as needed
+
+        // Create nodes (atoms)
+        const atom = svg.selectAll(".atom")
+            .data(atoms)
+            .enter().append("circle")
+            .attr("class", "atom")
+            .attr("r", 20)
+            .style("fill", "blue"); // Change the atom fill color to blue
+
+        // Create labels for atoms
+        const label = svg.selectAll(".label")
+            .data(atoms)
+            .enter().append("text")
+            .attr("class", "label")
+            .text(d => d.name)
+            .style("text-anchor", "middle")
+            .style("dominant-baseline", "middle")
+            .style("font-size", "12px")
+            .style("fill", "white"); // Change the label color to white
+
+        // Create a simulation with forces
+        const simulation = d3.forceSimulation(atoms)
+            .force("link", d3.forceLink(bonds).id(d => d.id).distance(60)) // Adjust the bond distance as needed
+            .force("charge", d3.forceManyBody().strength(-100)) // Adjust the strength as needed
+            .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2)) // Center the structure
+
+        // Update positions on each tick
+        function ticked() {
+            bond
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            atom
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+
+            label
+                .attr("x", d => d.x)
+                .attr("y", d => d.y);
+        }
+
+        // Add zoom and pan functionality
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 3]) // Adjust the zoom limits as needed
+            .on("zoom", () => {
+                svg.attr("transform", d3.event.transform);
+            });
+
+        {#svg.call(zoom);#}
+
+        // Add draggable atoms
+        const drag = d3.drag()
+            .on("start", (event, d) => {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            })
+            .on("drag", (event, d) => {
+                d.fx = event.x;
+                d.fy = event.y;
+            })
+            .on("end", (event, d) => {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            });
+
+        atom.call(drag);
+
+        simulation.on("tick", ticked); // Update positions on each tick
+    </script>
+</body>
+</html>
