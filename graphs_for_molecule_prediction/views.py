@@ -38,18 +38,32 @@ def main_graph(requests):
     # Create a JavaScript string with the formatted data
     # js_data = 'var data = ' + str(formatted_data) + ';'
 
-
-    return render(requests,'graph.html',{'js_data':str(formatted_data)})
+    return render(requests, 'graph.html', {'js_data': str(formatted_data)})
 
     # Define a function to parse the text data
+
+
 import json
+
+
 def parse_text_data(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
     data = {
-        "nodes": [],
-        "links": []
+        "name": "Ross",
+        "value": 216,
+        "linkWith": [
+            "Joey",
+            "Phoebe",
+            "Mrs Geller",
+            "Aunt Lilian",
+            "Mrs Bing",
+            "Ben",
+            "Mrs Green",
+            "Emily"
+        ],
+        "children": []
     }
 
     identity = None
@@ -62,29 +76,78 @@ def parse_text_data(file_path):
             if parts[0] == 'Identity':
                 # Save the current data (if any)
                 if identity and atoms:
-                    # Add atoms as nodes
-                    data["nodes"].extend(atoms)
-                    # Create links between consecutive atoms
-                    for i in range(len(atoms) - 1):
-                        data["links"].append({"source": atoms[i]["id"], "target": atoms[i + 1]["id"]})
+                    # Add the atoms as children to the current identity
+                    identity_data = {
+                        "name": identity,
+                        "value": 216,
+                        "linkWith": [atom["name"] for atom in atoms]
+                    }
+                    data["children"].append(identity_data)
                 # Start processing a new identity
                 identity = parts[1]
                 atoms = []
             elif parts[0] == 'BEADS':
                 # Create atoms from BEADS line
-                atoms = [{"id": part, "name": f"{part}"} for part in parts[1:]]
+                atoms = [{"name": part, "value": 1} for part in parts[1:]]
 
-    # Add the last set of atoms and links
+    # Add the last set of atoms
     if identity and atoms:
-        data["nodes"].extend(atoms)
-        for i in range(len(atoms) - 1):
-            data["links"].append({"source": atoms[i]["id"], "target": atoms[i + 1]["id"]})
-    data['nodes'] = [{'id': i, 'name': i} for i in set(node['name'] for node in data['nodes'])]
+        identity_data = {
+            "name": identity,
+            "value": 216,
+            "linkWith": [atom["name"] for atom in atoms]
+        }
+        data["children"].append(identity_data)
 
-    return data
+    print(data)
+
 
 def inter_graph(requests):
     result_data = parse_text_data(input_file_path)
 
+    return render(requests, 'bonds.html', {'inter_data': result_data})
 
-    return render(requests,'bonds.html',{'inter_data':result_data})
+
+def home(requests):
+    with open(input_file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Initialize variables to store the formatted data
+    formatted_data = []
+    identity = ''
+    beads = {}
+    links={}
+
+    for line in lines:
+        line = line.strip()
+        if line:
+            parts = line.split()
+            if parts[0] == 'Identity':
+
+                if identity:
+                    formatted_data.append({'name': identity,
+                                           'value': 21,
+                                           'children': beads})
+                identity = parts[1]
+                beads =[]
+            elif parts[0] == 'BEADS':
+                for part in parts[1:]:
+                    beads.append({'name': str(part), 'value': 10})
+            else:
+                for part in parts[1:]:
+                    node1,node2=part.split('-')
+                    if node1 not in links:
+                        links[node1] = []
+                    if node2 not in links:
+                        links[node2] = []
+                    links[node1].append((identity,node2))
+                    links[node2].append((identity,node1))
+
+
+    if identity:
+        formatted_data.append({'name': identity,
+                               'value': 21,
+                               'children': beads})
+
+
+    return render(requests, 'graph.html', {'formatted_data': formatted_data,'links':links})

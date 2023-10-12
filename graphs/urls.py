@@ -16,9 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from graphs_for_molecule_prediction.views import main_graph,inter_graph
+from graphs_for_molecule_prediction.views import main_graph, inter_graph, home
 
 urlpatterns = [
-    path('', main_graph),
-    path('inter',inter_graph)
+    path('inter', inter_graph),
+    path('', home)
 ]
