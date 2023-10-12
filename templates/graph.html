@@ -1,126 +1,303 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Zoomable Circle Packing Chart</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.15/dist/tailwind.min.css" rel="stylesheet">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
+          rel="stylesheet">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
+          integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.js"></script>
+    <style>
+        .tree, .tree ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            margin-left: 10px;
+        }
+
+        .tree ul {
+            margin-left: 1em;
+            position: relative
+        }
+
+        .tree ul ul {
+            margin-left: .5em
+        }
+
+        .tree ul:before {
+            content: "";
+            display: block;
+            width: 0;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            border-left: 1px solid
+        }
+
+        .tree li {
+            margin: 0;
+            padding: 0 1em;
+            line-height: 2em;
+            color: #369;
+            font-weight: 700;
+            position: relative
+        }
+
+        .tree ul li:before {
+            content: "";
+            display: block;
+            width: 10px;
+            height: 0;
+            border-top: 1px solid;
+            margin-top: -1px;
+            position: absolute;
+            top: 1em;
+            left: 0
+        }
+
+        .tree ul li:last-child:before {
+            background: #fff;
+            height: auto;
+            top: 1em;
+            bottom: 0
+        }
+
+        .indicator {
+            margin-right: 5px;
+        }
+
+        .tree li a {
+            text-decoration: none;
+            color: #369;
+        }
+
+        .tree li button, .tree li button:active, .tree li button:focus {
+            text-decoration: none;
+            color: #369;
+            border: none;
+            background: transparent;
+            margin: 0px 0px 0px 0px;
+            padding: 0px 0px 0px 0px;
+            outline: 0;
+        }
+
+    </style>
+    <style>
+        #chartdiv {
+            width: 100%;
+            height: 550px;
+        }
+    </style>
+
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/plugins/forceDirected.js"></script>
+    <script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
 
 </head>
 <body>
 
 
-<div id="chart-container"></div>
+<aside id="sidebar-multi-level-sidebar overflow-scroll"
+       class="fixed top-0 left-0 z-40 w-48 h-screen transition-transform -translate-x-full sm:translate-x-0"
+       aria-label="Sidebar">
+    <div class="h-full px-2 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+        <div class="row">
+            <div class="col-md-1">
+                <ul id="tree1">
+                    {% for i in formatted_data %}
+                        <li>
+                            <button>{{ i.name }}</button>
+                            <ul>
+                                <li>
+                                    <button id="{{ i.name }}_beads">BEADS</button>
+                                    <ul>
+                                        {% for beads in i.children %}
+                                            <li>{{ beads.name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+{#                                <li>#}
+{#                                    <button id="{{ i.name }}_bonds">BONDS</button>#}
+{#                                    <ul>#}
+{#                                        {% for beads in i.children %}#}
+{#                                            <li>{{ beads.name }}</li>#}
+{#                                        {% endfor %}#}
+{#                                    </ul>#}
+{#                                </li>#}
+                            </ul>
+
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<div class="p-2 sm:ml-64 overflow-scroll ">
+    <div class="p-2 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700 ">
+        <div id="chartdiv"></div>
+    </div>
+</div>
 
 <script>
-    function createZoomableCirclePackingChart(data) {
-        // Specify the chart’s dimensions.
-        const width = window.innerWidth;
-        const height = width;
 
-        // Create the color scale.
-        const color = d3.scaleLinear()
-            .domain([0, 5])
-            .range(["hsl(152,80%,80%)", "hsl(228,30%,40%)"])
-            .interpolate(d3.interpolateHcl);
+    var dict ={{ formatted_data|safe }};
 
-        // Compute the layout.
-        const pack = data => d3.pack()
-            .size([width, height])
-            .padding(3)
-            (d3.hierarchy(data)
-                .sum(d => d.value)
-                .sort((a, b) => b.value - a.value));
-        const root = pack(data);
+    var for_graph = [];
 
-        // Create the SVG container.
-        const svg = d3.create("svg")
-            .attr("viewBox", `-${width / 2} -${height / 2} ${width} ${height}`)
-            .attr("width", width)
-            .attr("height", height)
-            .attr("style", `max-width: 100%; height: auto; display: block; margin: 0 -14px; background: ${color(0)}; cursor: pointer;`);
+    function update_graph() {
 
-        // Append the nodes.
-        const node = svg.append("g")
-            .selectAll("circle")
-            .data(root.descendants().slice(1))
-            .join("circle")
-            .attr("fill", d => d.children ? color(d.depth) : "white")
-            .attr("pointer-events", d => !d.children ? "none" : null)
-            .on("mouseover", function () {
-                d3.select(this).attr("stroke", "#000");
-            })
-            .on("mouseout", function () {
-                d3.select(this).attr("stroke", null);
-            })
-            .on("click", (event, d) => focus !== d && (zoom(event, d), event.stopPropagation()));
+        am4core.ready(function () {
+            // Themes begin
+            am4core.useTheme(am4themes_animated);
+            // Themes end
+            var chart = am4core.create("chartdiv", am4plugins_forceDirected.ForceDirectedTree);
 
-        // Append the text labels.
-        const label = svg.append("g")
-            .style("font", "10px sans-serif")
-            .attr("pointer-events", "none")
-            .attr("text-anchor", "middle")
-            .selectAll("text")
-            .data(root.descendants())
-            .join("text")
-            .style("fill-opacity", d => d.parent === root ? 1 : 0)
-            .style("display", d => d.parent === root ? "inline" : "none")
-            .text(d => d.data.name);
+            var networkSeries = chart.series.push(new am4plugins_forceDirected.ForceDirectedSeries())
+            networkSeries.dataFields.linkWith = "linkWith";
+            networkSeries.dataFields.name = "name";
+            networkSeries.dataFields.id = "name";
+            networkSeries.dataFields.value = "value";
+            networkSeries.dataFields.children = "children";
 
-        // Create the zoom behavior and zoom immediately in to the initial focus node.
-        svg.on("click", (event) => zoom(event, root));
-        let focus = root;
-        let view;
-        zoomTo([focus.x, focus.y, focus.r * 2]);
+            networkSeries.nodes.template.label.text = "{name}"
+            networkSeries.fontSize = 8;
+            networkSeries.linkWithStrength = 0;
 
-        function zoomTo(v) {
-            const k = width / v[2];
+            var nodeTemplate = networkSeries.nodes.template;
+            nodeTemplate.tooltipText = "{name}";
+            nodeTemplate.fillOpacity = 1;
+            nodeTemplate.label.hideOversized = true;
+            nodeTemplate.label.truncate = true;
 
-            view = v;
+            var linkTemplate = networkSeries.links.template;
+            linkTemplate.strokeWidth = 1;
+            var linkHoverState = linkTemplate.states.create("hover");
+            linkHoverState.properties.strokeOpacity = 1;
+            linkHoverState.properties.strokeWidth = 2;
 
-            label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
-            node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`);
-            node.attr("r", d => d.r * k);
-        }
-
-        function zoom(event, d) {
-            const focus0 = focus;
-
-            focus = d;
-
-            const transition = svg.transition()
-                .duration(event.altKey ? 7500 : 750)
-                .tween("zoom", d => {
-                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
-                    return t => zoomTo(i(t));
+            nodeTemplate.events.on("over", function (event) {
+                var dataItem = event.target.dataItem;
+                dataItem.childLinks.each(function (link) {
+                    link.isHover = true;
                 });
+            });
 
-            label
-                .filter(function (d) {
-                    return d.parent === focus || this.style.display === "inline";
-                })
-                .transition(transition)
-                .style("fill-opacity", d => d.parent === focus ? 1 : 0)
-                .on("start", function (d) {
-                    if (d.parent === focus) this.style.display = "inline";
-                })
-                .on("end", function (d) {
-                    if (d.parent !== focus) this.style.display = "none";
+            nodeTemplate.events.on("out", function (event) {
+                var dataItem = event.target.dataItem;
+                dataItem.childLinks.each(function (link) {
+                    link.isHover = false;
                 });
-        }
-
-        return svg.node();
+            });
+            networkSeries.data = for_graph;
+        });
     }
 
-    // Define your data in the desired format
-    var data = {
-        name: "Root",
-        children:{{ js_data|safe }}
-    };
+    $.fn.extend({
+        treed: function (o) {
+            var openedClass = 'fa-minus-circle';
+            var closedClass = 'fa-plus-circle';
 
-    // Create the zoomable circle packing chart
-    var chart = createZoomableCirclePackingChart(data);
-    // Append the chart to the chart-container div
-    document.getElementById("chart-container").appendChild(chart);
+            if (typeof o != 'undefined') {
+                if (typeof o.openedClass != 'undefined') {
+                    openedClass = o.openedClass;
+                }
+                if (typeof o.closedClass != 'undefined') {
+                    closedClass = o.closedClass;
+                }
+            }
+
+            // Initialize each of the top levels
+            var tree = $(this);
+            tree.addClass("tree");
+            tree.find('li').has("ul").each(function () {
+                var branch = $(this); // li with children ul
+                branch.prepend("<i class='indicator fas " + closedClass + "'></i>");
+                branch.addClass('branch');
+                branch.on('click', function (e) {
+                    if (this === e.target) {
+                        var icon = $(this).children('i:first');
+                        icon.toggleClass(openedClass + " " + closedClass);
+                        $(this).children().children().toggle();
+                    }
+                });
+                branch.children().children().toggle();
+            });
+
+            // Fire event from the dynamically added icon
+            tree.find('.branch .indicator').each(function () {
+                $(this).on('click', function () {
+                    $(this).closest('li').click();
+                });
+            });
+
+            // Fire event to open branch if the li contains an anchor instead of text
+            tree.find('.branch>a').each(function () {
+                $(this).on('click', function (e) {
+                    $(this).closest('li').click();
+                    e.preventDefault();
+                });
+            });
+
+            // Modify the code for button click events to add/remove branches from the for_graph dictionary
+            tree.find('.branch>button').each(function () {
+                $(this).on('click', function (e) {
+                    var $li = $(this).closest('li');
+                    var $indicator = $li.find('.indicator');
+                    var id = this.id;
+                    var id1 = id.split('_')[0], id2 = id.split('_')[1];
+
+                    // Check the class of the indicator to determine if the branch is open or closed
+                    if ($indicator.hasClass(closedClass)) {
+                        // The branch is closed, so open it
+                        $li.click();
+                        $indicator.removeClass(closedClass).addClass(openedClass);
+
+                        // Remove the branch's ID from the for_graph dictionary
+                        if (id2 === 'beads') {
+                            for_graph = for_graph.filter(
+                                function (item) {
+                                    return item.name !== id1; // Remove items with matching names
+                                });
+                        }
+
+                    } else {
+                        // The branch is open, so close it
+                        $li.click();
+                        $indicator.removeClass(openedClass).addClass(closedClass);
+
+                        if (id2 === 'beads') {
+
+                            for (var key in dict) {
+
+                                if (dict.hasOwnProperty(key) && dict[key].name === id1) {
+                                    for_graph.push(dict[key]);
+                                }
+                            }
+                        }
+
+
+                    }
+                    update_graph();
+                    e.preventDefault();
+                });
+            });
+        }
+    });
+
+    // Initialization of treeviews
+    $('#tree1').treed();
+    $('#tree2').treed({openedClass: 'fa-folder-open', closedClass: 'fa-folder'});
+
 </script>
+
 </body>
 </html>
