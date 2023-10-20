@@ -123,14 +123,14 @@
                                         {% endfor %}
                                     </ul>
                                 </li>
-{#                                <li>#}
-{#                                    <button id="{{ i.name }}_bonds">BONDS</button>#}
-{#                                    <ul>#}
-{#                                        {% for beads in i.children %}#}
-{#                                            <li>{{ beads.name }}</li>#}
-{#                                        {% endfor %}#}
-{#                                    </ul>#}
-{#                                </li>#}
+                                {#                                <li>#}
+                                {#                                    <button id="{{ i.name }}_bonds">BONDS</button>#}
+                                {#                                    <ul>#}
+                                {#                                        {% for beads in i.children %}#}
+                                {#                                            <li>{{ beads.name }}</li>#}
+                                {#                                        {% endfor %}#}
+                                {#                                    </ul>#}
+                                {#                                </li>#}
                             </ul>
 
                         </li>
@@ -145,11 +145,32 @@
     <div class="p-2 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700 ">
         <div id="chartdiv"></div>
     </div>
+
+    <div class="p-2 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700 ">
+        <div id="bondDiv"></div>
+    </div>
 </div>
 
 <script>
 
     var dict ={{ formatted_data|safe }};
+
+    var bondData ={{ links|safe }};
+
+
+
+
+    for (const key in bondData) {
+
+        if (bondData.hasOwnProperty(key)) {
+            const array = bondData[key]; // Access the array for the current key
+
+            // Iterate through the array of tuples
+            for (const tuple of array) {
+                const [item1, item2] = tuple;
+            }
+         }
+     }
 
     var for_graph = [];
 
@@ -198,6 +219,49 @@
                 });
             });
             networkSeries.data = for_graph;
+
+            var bondChart = am4core.create("bondDiv", am4plugins_forceDirected.ForceDirectedTree);
+
+            var bondNetworkSeries = bondChart.series.push(new am4plugins_forceDirected.ForceDirectedSeries())
+            bondNetworkSeries.dataFields.linkWith = "linkWith";
+            bondNetworkSeries.dataFields.name = "name";
+            bondNetworkSeries.dataFields.id = "name";
+            bondNetworkSeries.dataFields.value = "value";
+            bondNetworkSeries.dataFields.children = "children";
+
+            bondNetworkSeries.nodes.template.label.text = "{name}"
+            bondNetworkSeries.fontSize = 8;
+            bondNetworkSeries.linkWithStrength = 0;
+
+            var bondNodeTemplate = bondNetworkSeries.nodes.template;
+            bondNodeTemplate.tooltipText = "{name}";
+            bondNodeTemplate.fillOpacity = 1;
+            bondNodeTemplate.label.hideOversized = true;
+            bondNodeTemplate.label.truncate = true;
+
+            var bondLinkTemplate = bondNetworkSeries.links.template;
+            bondLinkTemplate.strokeWidth = 1;
+            var bondLinkHoverState = bondLinkTemplate.states.create("hover");
+            bondLinkHoverState.properties.strokeOpacity = 1;
+            bondLinkHoverState.properties.strokeWidth = 2;
+
+            bondNodeTemplate.events.on("over", function (event) {
+                var bondDataItem = event.target.dataItem;
+                bondDataItem.childLinks
+                each(function (link) {
+                    link.isHover = true;
+                });
+            });
+
+            bondNodeTemplate.events.on("out", function (event) {
+                var bondDataItem = event.target.dataItem;
+                bondDataItem.childLinks.each(function (link) {
+                    link.isHover = false;
+                });
+            });
+            bondNetworkSeries.data = for_graph;
+
+
         });
     }
 
