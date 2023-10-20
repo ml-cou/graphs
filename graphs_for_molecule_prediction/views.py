@@ -140,14 +140,19 @@ def home(requests):
                         links[node1] = []
                     if node2 not in links:
                         links[node2] = []
-                    links[node1].append((identity,node2))
-                    links[node2].append((identity,node1))
+                    links[node1].append([identity,node2])
+                    links[node2].append([identity,node1])
 
 
     if identity:
         formatted_data.append({'name': identity,
                                'value': 21,
                                'children': beads})
+
+    for k,v in links.items():
+        print(k)
+        print(v)
+    # print(formatted_data)
 
 
     return render(requests, 'graph.html', {'formatted_data': formatted_data,'links':links})
